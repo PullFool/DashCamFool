@@ -1,6 +1,6 @@
-export const APP_NAME = 'MotoDashCam';
-export const RECORDING_DIR = 'MotoDashCam';
-export const THUMBNAIL_DIR = 'MotoDashCam/thumbnails';
+export const APP_NAME = 'DashCamFool';
+export const RECORDING_DIR = 'DashCamFool';
+export const THUMBNAIL_DIR = 'DashCamFool/thumbnails';
 
 export const CHUNK_DURATION_DEFAULT = 180; // 3 minutes in seconds
 export const MAX_STORAGE_DEFAULT_MB = 2048; // 2 GB

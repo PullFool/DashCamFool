@@ -14,9 +14,9 @@ export default function TimestampOverlay({
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [speed, setSpeed] = useState(0);
+  const [gpsAvailable, setGpsAvailable] = useState(false);
 
   useEffect(() => {
-    // Update clock every second
     const interval = setInterval(() => {
       const now = new Date();
       setCurrentTime(
@@ -44,9 +44,20 @@ export default function TimestampOverlay({
 
     const unsubscribe = locationService.addListener(location => {
       setSpeed(location.speed);
+      setGpsAvailable(true);
     });
 
-    return unsubscribe;
+    // If no GPS update after 5 seconds, mark as unavailable
+    const timeout = setTimeout(() => {
+      if (!locationService.getCurrentLocation()) {
+        setGpsAvailable(false);
+      }
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [showSpeed]);
 
   return (
@@ -62,14 +73,23 @@ export default function TimestampOverlay({
       {/* Top-right: speed */}
       {showSpeed && (
         <View style={styles.speedContainer}>
-          <Text style={styles.speedValue}>{speed}</Text>
-          <Text style={styles.speedUnit}>km/h</Text>
+          {gpsAvailable ? (
+            <>
+              <Text style={styles.speedValue}>{speed}</Text>
+              <Text style={styles.speedUnit}>km/h</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.gpsOff}>GPS</Text>
+              <Text style={styles.speedUnit}>OFF</Text>
+            </>
+          )}
         </View>
       )}
 
       {/* Bottom-left: app watermark */}
       <View style={styles.watermark}>
-        <Text style={styles.watermarkText}>MotoDashCam</Text>
+        <Text style={styles.watermarkText}>DashCamFool</Text>
       </View>
     </View>
   );
@@ -121,6 +141,12 @@ const styles = StyleSheet.create({
     color: '#AAA',
     fontSize: 11,
     fontFamily: 'monospace',
+  },
+  gpsOff: {
+    color: '#FF6666',
+    fontSize: 18,
+    fontFamily: 'monospace',
+    fontWeight: 'bold',
   },
   watermark: {
     position: 'absolute',

@@ -4,31 +4,37 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
-    "ios": "react-native run-ios",
     "start": "react-native start",
     "lint": "eslint ."
   },
   "dependencies": {
-    "react": "18.2.0",
-    "react-native": "0.74.0",
-    "react-native-vision-camera": "^4.0.0",
-    "react-native-fs": "^2.20.0",
-    "react-native-background-actions": "^4.0.0",
     "@react-native-async-storage/async-storage": "^1.23.0",
     "@react-native-community/geolocation": "^3.2.0",
-    "@react-navigation/native": "^6.1.0",
     "@react-navigation/bottom-tabs": "^6.5.0",
-    "react-native-screens": "^3.30.0",
+    "@react-navigation/native": "^6.1.0",
+    "@wokcito/ffmpeg-kit-react-native": "^6.1.2",
+    "react": "18.2.0",
+    "react-native": "0.74.0",
+    "react-native-background-actions": "^4.0.0",
+    "react-native-create-thumbnail": "^2.0.0",
+    "react-native-fs": "^2.20.0",
     "react-native-safe-area-context": "^4.9.0",
-    "react-native-vector-icons": "^10.0.0",
+    "react-native-screens": "^3.30.0",
     "react-native-share": "^10.0.0",
-    "react-native-video": "^6.0.0",
-    "react-native-create-thumbnail": "^2.0.0"
+    "react-native-vector-icons": "^10.0.0",
+    "react-native-video": "^5.2.1",
+    "react-native-vision-camera": "^4.0.0"
   },
   "devDependencies": {
+    "@react-native-community/cli": "13.6.4",
+    "@react-native-community/cli-platform-android": "13.6.4",
+    "@react-native/babel-preset": "0.74.0",
+    "@react-native/eslint-config": "0.74.0",
+    "@react-native/gradle-plugin": "0.74.0",
+    "@react-native/metro-config": "0.74.0",
+    "@react-native/typescript-config": "0.74.0",
     "@types/react": "^18.2.0",
-    "@types/react-native": "^0.73.0",
-    "typescript": "^5.4.0",
-    "@react-native/eslint-config": "^0.74.0"
+    "sharp": "^0.34.5",
+    "typescript": "^5.4.0"
   }
 }

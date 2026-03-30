@@ -6,8 +6,8 @@ export interface BackgroundTaskOptions {
 }
 
 const NOTIFICATION_CONFIG = {
-  taskName: 'MotoDashCam',
-  taskTitle: 'MotoDashCam Recording',
+  taskName: 'DashCamFool',
+  taskTitle: 'DashCamFool Recording',
   taskDesc: 'Recording in background...',
   taskIcon: {
     name: 'ic_launcher',

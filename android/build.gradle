@@ -1,0 +1,38 @@
+buildscript {
+    ext {
+        buildToolsVersion = "34.0.0"
+        minSdkVersion = 26
+        compileSdkVersion = 35
+        targetSdkVersion = 35
+        ndkVersion = "26.1.10909125"
+        kotlinVersion = "1.9.22"
+    }
+    repositories {
+        google()
+        mavenCentral()
+        maven { url("$rootDir/../node_modules/react-native/android") }
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.2.2")
+        classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
+    }
+}
+
+// Fix namespace for libraries that don't specify it (AGP 8+ requirement)
+subprojects { subproject ->
+    afterEvaluate {
+        if (subproject.plugins.hasPlugin("com.android.library")) {
+            def android = subproject.extensions.findByName("android")
+            if (android != null && (android.namespace == null || android.namespace.isEmpty())) {
+                def manifest = file("${subproject.projectDir}/src/main/AndroidManifest.xml")
+                if (manifest.exists()) {
+                    def match = (manifest.text =~ /package="([^"]+)"/)
+                    if (match) {
+                        android.namespace = match[0][1]
+                    }
+                }
+            }
+        }
+    }
+}

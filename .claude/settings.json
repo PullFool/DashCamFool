@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:ottverse.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:tanersener.medium.com)",
+      "WebFetch(domain:www.itpathsolutions.com)"
+    ]
+  }
+}

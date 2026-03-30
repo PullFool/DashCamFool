@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import {
   Camera,
@@ -8,7 +8,6 @@ import {
 } from 'react-native-vision-camera';
 import { useApp } from '../context/AppContext';
 import { recordingService } from '../services/RecordingService';
-import { VIDEO_QUALITY_MAP } from '../utils/constants';
 import TimestampOverlay from './TimestampOverlay';
 
 interface CameraViewProps {
@@ -25,14 +24,10 @@ export default function CameraView({ isActive }: CameraViewProps) {
     useMicrophonePermission();
   const [permissionsReady, setPermissionsReady] = useState(false);
 
-  const { activeCamera, videoQuality, showTimestamp, showSpeed } = state.settings;
+  const { showTimestamp, showSpeed } = state.settings;
 
-  const device =
-    activeCamera === 'front'
-      ? devices.find(d => d.position === 'front')
-      : devices.find(d => d.position === 'back');
+  const device = devices.find(d => d.position === 'back');
 
-  // Request permissions on mount
   useEffect(() => {
     (async () => {
       if (!hasCamPerm) await reqCamPerm();
@@ -41,14 +36,11 @@ export default function CameraView({ isActive }: CameraViewProps) {
     })();
   }, [hasCamPerm, hasMicPerm, reqCamPerm, reqMicPerm]);
 
-  // Pass camera ref to recording service
   useEffect(() => {
     if (cameraRef.current) {
       recordingService.setCameraRef(cameraRef.current);
     }
   }, [device, permissionsReady]);
-
-  const quality = VIDEO_QUALITY_MAP[videoQuality];
 
   if (!permissionsReady) {
     return (
@@ -86,10 +78,9 @@ export default function CameraView({ isActive }: CameraViewProps) {
         isActive={isActive}
         video={true}
         audio={true}
-        videoStabilizationMode="auto"
+        onError={() => {}}
       />
 
-      {/* Timestamp & speed overlay */}
       {(showTimestamp || showSpeed) && (
         <TimestampOverlay showTimestamp={showTimestamp} showSpeed={showSpeed} />
       )}

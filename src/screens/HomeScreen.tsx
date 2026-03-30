@@ -19,6 +19,7 @@ export default function HomeScreen() {
   const { settings, clips, recording } = state;
   const [elapsed, setElapsed] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [showControls, setShowControls] = useState(true);
 
   const colors = settings.darkMode ? COLORS.dark : COLORS.light;
 
@@ -46,6 +47,17 @@ export default function HomeScreen() {
     recordingService.updateState(settings, clips);
   }, [settings, clips]);
 
+  // Auto-start recording if enabled
+  useEffect(() => {
+    if (settings.autoStartRecording && !isRecording && !state.isLoading) {
+      // Delay to ensure camera is ready
+      const timer = setTimeout(() => {
+        recordingService.startRecording(settings, clips);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [settings.autoStartRecording, state.isLoading]);
+
   const handleToggleRecording = useCallback(async () => {
     if (isRecording) {
       await recordingService.stopRecording();
@@ -66,15 +78,6 @@ export default function HomeScreen() {
     }
   }, [isRecording]);
 
-  const handleSwitchCamera = useCallback(() => {
-    if (isRecording) {
-      Alert.alert('Cannot Switch', 'Stop recording before switching camera.');
-      return;
-    }
-    const newCamera = settings.activeCamera === 'back' ? 'front' : 'back';
-    updateSettings({ activeCamera: newCamera });
-  }, [isRecording, settings.activeCamera, updateSettings]);
-
   const formatTime = (seconds: number): string => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -89,8 +92,8 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor="transparent"
-        translucent
+        backgroundColor="#000"
+        translucent={false}
       />
 
       {/* Camera preview */}
@@ -117,87 +120,82 @@ export default function HomeScreen() {
       </View>
 
       {/* Controls overlay at bottom */}
-      <View style={[styles.controlsContainer, { backgroundColor: colors.surface }]}>
-        {/* Storage bar */}
-        <StorageBar compact />
-
-        {/* Buttons row */}
-        <View style={styles.buttonsRow}>
-          {/* Switch camera */}
+      {showControls ? (
+        <View style={[styles.controlsContainer, { backgroundColor: colors.surface }]}>
+          {/* Toggle arrow - top right of controls */}
           <TouchableOpacity
-            style={[styles.sideButton, { backgroundColor: colors.surfaceLight }]}
-            onPress={handleSwitchCamera}
-            disabled={isRecording}>
-            <Text style={[styles.sideButtonIcon, { color: colors.text }]}>
-              {settings.activeCamera === 'back' ? '🔄' : '🔄'}
-            </Text>
-            <Text
-              style={[
-                styles.sideButtonLabel,
-                {
-                  color: isRecording ? colors.textSecondary : colors.text,
-                },
-              ]}>
-              {settings.activeCamera === 'back' ? 'Front' : 'Rear'}
-            </Text>
+            style={styles.toggleButton}
+            onPress={() => setShowControls(false)}>
+            <Text style={styles.toggleArrow}>▼</Text>
           </TouchableOpacity>
 
-          {/* Record button */}
-          <TouchableOpacity
-            style={[
-              styles.recordButton,
-              isRecording && styles.recordButtonActive,
-            ]}
-            onPress={handleToggleRecording}
-            activeOpacity={0.7}>
-            <View
+          {/* Storage bar */}
+          <StorageBar compact />
+
+          {/* Buttons row */}
+          <View style={styles.buttonsRow}>
+            {/* Record button */}
+            <TouchableOpacity
               style={[
-                styles.recordButtonInner,
-                isRecording
-                  ? styles.recordButtonInnerStop
-                  : styles.recordButtonInnerStart,
+                styles.recordButton,
+                isRecording && styles.recordButtonActive,
               ]}
-            />
-          </TouchableOpacity>
+              onPress={handleToggleRecording}
+              activeOpacity={0.7}>
+              <View
+                style={[
+                  styles.recordButtonInner,
+                  isRecording
+                    ? styles.recordButtonInnerStop
+                    : styles.recordButtonInnerStart,
+                ]}
+              />
+            </TouchableOpacity>
 
-          {/* Emergency lock */}
-          <TouchableOpacity
-            style={[
-              styles.sideButton,
-              {
-                backgroundColor: isRecording
-                  ? colors.locked
-                  : colors.surfaceLight,
-              },
-            ]}
-            onPress={handleEmergencyLock}
-            disabled={!isRecording}>
-            <Text style={styles.sideButtonIcon}>🔒</Text>
-            <Text
+            {/* Emergency lock */}
+            <TouchableOpacity
               style={[
-                styles.sideButtonLabel,
+                styles.sideButton,
                 {
-                  color: isRecording ? '#000' : colors.textSecondary,
+                  backgroundColor: isRecording
+                    ? colors.locked
+                    : colors.surfaceLight,
                 },
-              ]}>
-              Lock
-            </Text>
-          </TouchableOpacity>
-        </View>
+              ]}
+              onPress={handleEmergencyLock}
+              disabled={!isRecording}>
+              <Text style={styles.sideButtonIcon}>🔒</Text>
+              <Text
+                style={[
+                  styles.sideButtonLabel,
+                  {
+                    color: isRecording ? '#000' : colors.textSecondary,
+                  },
+                ]}>
+                Lock
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* Status info */}
-        <View style={styles.statusRow}>
-          <Text style={[styles.statusText, { color: colors.textSecondary }]}>
-            {isRecording
-              ? `Chunk: ${formatTime(elapsed)} / ${formatTime(settings.chunkDurationSec)}`
-              : 'Ready to record'}
-          </Text>
-          <Text style={[styles.statusText, { color: colors.textSecondary }]}>
-            {settings.videoQuality.toUpperCase()} •{' '}
-            {settings.activeCamera === 'back' ? 'Rear Cam' : 'Front Cam'}
-          </Text>
+          {/* Status info */}
+          <View style={styles.statusRow}>
+            <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+              {isRecording
+                ? `Chunk: ${formatTime(elapsed)} / ${formatTime(settings.chunkDurationSec)}`
+                : 'Ready to record'}
+            </Text>
+            <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+              {settings.videoQuality.toUpperCase()} • Rear Cam
+            </Text>
+          </View>
         </View>
-      </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.showButton, { backgroundColor: colors.surface }]}
+          onPress={() => setShowControls(true)}>
+          <Text style={styles.toggleArrow}>▲</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -212,15 +210,15 @@ const styles = StyleSheet.create({
   },
   recordingIndicator: {
     position: 'absolute',
-    top: 50,
+    top: 12,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    gap: 6,
   },
   recDot: {
     width: 10,
@@ -252,12 +250,33 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#FF4444',
   },
+  toggleButton: {
+    position: 'absolute',
+    right: 10,
+    top: -20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  showButton: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderTopLeftRadius: 12,
+  },
+  toggleArrow: {
+    fontSize: 18,
+    color: '#FFF',
+  },
   controlsContainer: {
     paddingTop: 8,
     paddingBottom: 24,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    marginTop: -16,
   },
   buttonsRow: {
     flexDirection: 'row',

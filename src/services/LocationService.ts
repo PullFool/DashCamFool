@@ -1,6 +1,7 @@
 import Geolocation, {
   GeolocationResponse,
 } from '@react-native-community/geolocation';
+import { PermissionsAndroid, Platform } from 'react-native';
 import { LocationData } from '../types';
 
 type LocationCallback = (location: LocationData) => void;
@@ -11,37 +12,58 @@ class LocationService {
   private listeners: LocationCallback[] = [];
 
   /**
-   * Start tracking GPS location and speed
+   * Start tracking GPS location and speed — silently fails if GPS unavailable
    */
-  start(): void {
+  async start(): Promise<void> {
     if (this.watchId !== null) return;
 
-    Geolocation.requestAuthorization();
+    try {
+      // Request location permission first
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'DashCamFool needs GPS to track your speed.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Deny',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          // No permission — silently skip GPS
+          return;
+        }
+      }
 
-    this.watchId = Geolocation.watchPosition(
-      (position: GeolocationResponse) => {
-        const { latitude, longitude, speed } = position.coords;
+      Geolocation.requestAuthorization();
 
-        this.currentLocation = {
-          latitude,
-          longitude,
-          // speed comes in m/s, convert to km/h. Null/negative means no reading.
-          speed: speed != null && speed >= 0 ? Math.round(speed * 3.6) : 0,
-          timestamp: position.timestamp,
-        };
+      this.watchId = Geolocation.watchPosition(
+        (position: GeolocationResponse) => {
+          const { latitude, longitude, speed } = position.coords;
 
-        this.listeners.forEach(cb => cb(this.currentLocation!));
-      },
-      (error) => {
-        console.warn('Location error:', error.message);
-      },
-      {
-        enableHighAccuracy: true,
-        distanceFilter: 5, // update every 5 meters
-        interval: 1000, // 1 second
-        fastestInterval: 500,
-      },
-    );
+          this.currentLocation = {
+            latitude,
+            longitude,
+            speed: speed != null && speed >= 0 ? Math.round(speed * 3.6) : 0,
+            timestamp: position.timestamp,
+          };
+
+          this.listeners.forEach(cb => cb(this.currentLocation!));
+        },
+        () => {
+          // Silently ignore GPS errors — recording works without it
+        },
+        {
+          enableHighAccuracy: false,
+          distanceFilter: 10,
+          interval: 2000,
+          fastestInterval: 1000,
+          timeout: 30000,
+        },
+      );
+    } catch {
+      // GPS unavailable — silently continue without it
+    }
   }
 
   /**

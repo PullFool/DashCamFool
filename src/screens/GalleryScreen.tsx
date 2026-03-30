@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,15 +9,174 @@ import {
   Image,
   Modal,
   Dimensions,
+  PanResponder,
 } from 'react-native';
 import Video from 'react-native-video';
 import Share from 'react-native-share';
+import { useIsFocused } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { storageManager } from '../services/StorageManager';
 import { VideoClip } from '../types';
 import { COLORS } from '../utils/constants';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
+// Full-screen video player with seek controls
+function VideoPlayer({
+  clip,
+  onClose,
+  formatSize,
+  formatDuration,
+}: {
+  clip: VideoClip | null;
+  onClose: () => void;
+  formatSize: (bytes: number) => string;
+  formatDuration: (seconds: number) => string;
+}) {
+  const videoRef = useRef<any>(null);
+  const [paused, setPaused] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const hideTimer = useRef<any>(null);
+  const progressBarWidth = useRef(0);
+
+  if (!clip) return null;
+
+  const showControlsBriefly = () => {
+    setShowControls(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    if (!paused) {
+      hideTimer.current = setTimeout(() => setShowControls(false), 3000);
+    }
+  };
+
+  const formatPlayerTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const progress = videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0;
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (evt) => {
+      setIsSeeking(true);
+      setPaused(true);
+      const x = evt.nativeEvent.locationX;
+      if (progressBarWidth.current > 0 && videoDuration > 0) {
+        const seekTime = (x / progressBarWidth.current) * videoDuration;
+        const clamped = Math.max(0, Math.min(seekTime, videoDuration));
+        videoRef.current?.seek(clamped);
+        setCurrentTime(clamped);
+      }
+    },
+    onPanResponderMove: (evt) => {
+      const x = evt.nativeEvent.locationX;
+      if (progressBarWidth.current > 0 && videoDuration > 0) {
+        const seekTime = (x / progressBarWidth.current) * videoDuration;
+        const clamped = Math.max(0, Math.min(seekTime, videoDuration));
+        videoRef.current?.seek(clamped);
+        setCurrentTime(clamped);
+      }
+    },
+    onPanResponderRelease: () => {
+      setIsSeeking(false);
+      setPaused(false);
+    },
+  });
+
+  return (
+    <View style={styles.playerContainer}>
+      <Video
+        ref={videoRef}
+        source={{ uri: `file://${clip.filePath}` }}
+        style={styles.videoPlayer}
+        resizeMode="contain"
+        paused={paused}
+        onProgress={(data: any) => {
+          if (!isSeeking) setCurrentTime(data.currentTime);
+        }}
+        onLoad={(data: any) => setVideoDuration(data.duration)}
+        onEnd={() => setPaused(true)}
+      />
+
+      {/* Tap to show/hide controls */}
+      <TouchableOpacity
+        style={styles.videoTapArea}
+        activeOpacity={1}
+        onPress={() => {
+          if (showControls) {
+            setShowControls(false);
+          } else {
+            showControlsBriefly();
+          }
+        }}
+      />
+
+      {/* Close button */}
+      {showControls && (
+        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <Text style={styles.closeText}>✕</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Bottom controls */}
+      {showControls && (
+      <View style={styles.playerControls}>
+        {/* Slideable progress bar */}
+        <View
+          style={styles.sliderContainer}
+          onLayout={(e) => {
+            progressBarWidth.current = e.nativeEvent.layout.width;
+          }}
+          {...panResponder.panHandlers}>
+          <View style={styles.progressBarTrack}>
+            <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+          </View>
+          {/* Slider thumb */}
+          <View style={[styles.sliderThumb, { left: `${progress}%` }]} />
+        </View>
+
+        <View style={styles.timeRow}>
+          <Text style={styles.timeText}>{formatPlayerTime(currentTime)}</Text>
+          <TouchableOpacity
+            style={styles.playPauseButton}
+            onPress={() => {
+              setPaused(!paused);
+              if (paused) {
+                if (hideTimer.current) clearTimeout(hideTimer.current);
+                hideTimer.current = setTimeout(() => setShowControls(false), 3000);
+              }
+            }}>
+            <Text style={styles.playPauseText}>{paused ? '▶' : '⏸'}</Text>
+          </TouchableOpacity>
+          <Text style={styles.timeText}>{formatPlayerTime(videoDuration)}</Text>
+        </View>
+
+        {/* Clip info */}
+        <View style={styles.playerInfo}>
+          <Text style={styles.playerInfoText}>
+            {new Date(clip.createdAt).toLocaleString()}
+          </Text>
+          <Text style={styles.playerInfoText}>
+            {formatSize(clip.fileSize)} • {formatDuration(clip.duration)}
+          </Text>
+          {clip.location && (
+            <Text style={styles.playerInfoText}>
+              Speed: {clip.location.speed} km/h
+            </Text>
+          )}
+        </View>
+      </View>
+      )}
+    </View>
+  );
+}
 
 export default function GalleryScreen() {
   const { state, removeClip, toggleLock } = useApp();
@@ -25,15 +184,16 @@ export default function GalleryScreen() {
   const colors = settings.darkMode ? COLORS.dark : COLORS.light;
   const [selectedClip, setSelectedClip] = useState<VideoClip | null>(null);
   const [filterLocked, setFilterLocked] = useState(false);
+  const isFocused = useIsFocused();
 
-  // Sort clips newest first
+  // Sort clips newest first — refreshes when screen is focused or clips change
   const sortedClips = useMemo(() => {
     let filtered = [...clips].sort((a, b) => b.createdAt - a.createdAt);
     if (filterLocked) {
       filtered = filtered.filter(c => c.isLocked);
     }
     return filtered;
-  }, [clips, filterLocked]);
+  }, [clips, filterLocked, isFocused]);
 
   // Group clips by date
   const groupedClips = useMemo(() => {
@@ -92,7 +252,7 @@ export default function GalleryScreen() {
       await Share.open({
         url: `file://${clip.filePath}`,
         type: 'video/mp4',
-        title: `MotoDashCam - ${clip.fileName}`,
+        title: `DashCamFool - ${clip.fileName}`,
       });
     } catch (error: any) {
       if (error?.message !== 'User did not share') {
@@ -157,7 +317,7 @@ export default function GalleryScreen() {
           {formatTime(clip.createdAt)}
         </Text>
         <Text style={[styles.clipMeta, { color: colors.textSecondary }]}>
-          {clip.camera === 'back' ? 'Rear' : 'Front'} • {formatSize(clip.fileSize)}
+          {formatSize(clip.fileSize)}
         </Text>
         {clip.location && (
           <Text style={[styles.clipSpeed, { color: colors.accent }]}>
@@ -253,7 +413,7 @@ export default function GalleryScreen() {
       ) : (
         <FlatList
           data={sortedClips}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => `${item.id}_${index}`}
           renderItem={renderClipItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -266,42 +426,12 @@ export default function GalleryScreen() {
         animationType="slide"
         statusBarTranslucent
         onRequestClose={() => setSelectedClip(null)}>
-        <View style={styles.playerContainer}>
-          {selectedClip && (
-            <Video
-              source={{ uri: `file://${selectedClip.filePath}` }}
-              style={styles.videoPlayer}
-              controls={true}
-              resizeMode="contain"
-              paused={false}
-            />
-          )}
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setSelectedClip(null)}>
-            <Text style={styles.closeText}>✕ Close</Text>
-          </TouchableOpacity>
-
-          {selectedClip && (
-            <View style={styles.playerInfo}>
-              <Text style={styles.playerInfoText}>
-                {new Date(selectedClip.createdAt).toLocaleString()}
-              </Text>
-              <Text style={styles.playerInfoText}>
-                {selectedClip.camera === 'back' ? 'Rear Cam' : 'Front Cam'} •{' '}
-                {formatSize(selectedClip.fileSize)} •{' '}
-                {formatDuration(selectedClip.duration)}
-              </Text>
-              {selectedClip.location && (
-                <Text style={styles.playerInfoText}>
-                  Speed: {selectedClip.location.speed} km/h • GPS:{' '}
-                  {selectedClip.location.latitude.toFixed(4)},{' '}
-                  {selectedClip.location.longitude.toFixed(4)}
-                </Text>
-              )}
-            </View>
-          )}
-        </View>
+        <VideoPlayer
+          clip={selectedClip}
+          onClose={() => setSelectedClip(null)}
+          formatSize={formatSize}
+          formatDuration={formatDuration}
+        />
       </Modal>
     </View>
   );
@@ -442,33 +572,91 @@ const styles = StyleSheet.create({
   playerContainer: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'center',
   },
   videoPlayer: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * (9 / 16),
+    flex: 1,
   },
   closeButton: {
     position: 'absolute',
-    top: 50,
-    right: 20,
+    top: 40,
+    right: 16,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   closeText: {
     color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  playerControls: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingBottom: 30,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+  },
+  videoTapArea: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sliderContainer: {
+    height: 30,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  progressBarTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#FF4444',
+  },
+  sliderThumb: {
+    position: 'absolute',
+    top: 9,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#FF4444',
+    marginLeft: -7,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  timeText: {
+    color: '#AAA',
+    fontSize: 11,
+    fontFamily: 'monospace',
+  },
+  playPauseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playPauseText: {
+    color: '#FFF',
+    fontSize: 16,
   },
   playerInfo: {
-    position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 8,
     padding: 12,
   },
   playerInfoText: {

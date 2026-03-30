@@ -53,6 +53,10 @@ function appReducer(state: AppState, action: Action): AppState {
     case 'SET_CLIPS':
       return { ...state, clips: action.payload };
     case 'ADD_CLIP':
+      // Prevent duplicate clips
+      if (state.clips.some(c => c.id === action.payload.id)) {
+        return state;
+      }
       return { ...state, clips: [...state.clips, action.payload] };
     case 'REMOVE_CLIP':
       return {
@@ -127,7 +131,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const settings = settingsJson
         ? { ...DEFAULT_SETTINGS, ...JSON.parse(settingsJson) }
         : DEFAULT_SETTINGS;
-      const clips: VideoClip[] = clipsJson ? JSON.parse(clipsJson) : [];
+      const rawClips: VideoClip[] = clipsJson ? JSON.parse(clipsJson) : [];
+      // Deduplicate clips by ID
+      const seen = new Set<string>();
+      const clips = rawClips.filter(c => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
 
       const usedMB = clips.reduce((sum, c) => sum + c.fileSize / (1024 * 1024), 0);
 

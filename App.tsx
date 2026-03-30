@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StatusBar, useColorScheme } from 'react-native';
+import SplashScreen from './src/screens/SplashScreen';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AppProvider, useApp } from './src/context/AppContext';
@@ -119,6 +120,12 @@ function TabIcon({ label, color }: { label: string; color: string }) {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
   return (
     <AppProvider>
       <AppNavigator />
