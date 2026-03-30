@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ActivityIndicator, AppState } from 'react-native';
 import {
   Camera,
   useCameraDevices,
@@ -41,6 +41,16 @@ export default function CameraView({ isActive }: CameraViewProps) {
       recordingService.setCameraRef(cameraRef.current);
     }
   }, [device, permissionsReady]);
+
+  // Keep camera active even when app goes to background (for screen-off recording)
+  const [appActive, setAppActive] = useState(true);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      // Always keep camera active — background service handles the recording
+      setAppActive(true);
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!permissionsReady) {
     return (

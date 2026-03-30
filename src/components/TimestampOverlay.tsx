@@ -62,30 +62,22 @@ export default function TimestampOverlay({
 
   return (
     <View style={styles.container} pointerEvents="none">
-      {/* Top-left: date and time */}
-      {showTimestamp && (
-        <View style={styles.timestampContainer}>
-          <Text style={styles.dateText}>{currentDate}</Text>
-          <Text style={styles.timeText}>{currentTime}</Text>
-        </View>
-      )}
-
-      {/* Top-right: speed */}
-      {showSpeed && (
-        <View style={styles.speedContainer}>
-          {gpsAvailable ? (
-            <>
-              <Text style={styles.speedValue}>{speed}</Text>
-              <Text style={styles.speedUnit}>km/h</Text>
-            </>
+      {/* Top-right: timestamp + speed */}
+      <View style={styles.topRightContainer}>
+        {showTimestamp && (
+          <>
+            <Text style={styles.dateText}>{currentDate}</Text>
+            <Text style={styles.timeText}>{currentTime}</Text>
+          </>
+        )}
+        {showSpeed && (
+          gpsAvailable ? (
+            <Text style={styles.speedValue}>{speed} km/h</Text>
           ) : (
-            <>
-              <Text style={styles.gpsOff}>GPS</Text>
-              <Text style={styles.speedUnit}>OFF</Text>
-            </>
-          )}
-        </View>
-      )}
+            <Text style={styles.gpsOff}>GPS OFF</Text>
+          )
+        )}
+      </View>
 
       {/* Bottom-left: app watermark */}
       <View style={styles.watermark}>
@@ -100,66 +92,70 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     padding: 12,
   },
-  timestampContainer: {
+  topRightContainer: {
     position: 'absolute',
     top: 12,
     left: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    alignItems: 'flex-start',
   },
   dateText: {
     color: '#FFF',
     fontSize: 12,
     fontFamily: 'monospace',
     fontWeight: '600',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 3,
   },
   timeText: {
-    color: '#FF4444',
+    color: '#FFFFFF',
     fontSize: 18,
     fontFamily: 'monospace',
     fontWeight: 'bold',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 3,
   },
   speedContainer: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
   speedValue: {
-    color: '#00FF88',
+    color: '#FFFFFF',
     fontSize: 28,
     fontFamily: 'monospace',
     fontWeight: 'bold',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 3,
   },
   speedUnit: {
     color: '#AAA',
     fontSize: 11,
     fontFamily: 'monospace',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   gpsOff: {
     color: '#FF6666',
     fontSize: 18,
     fontFamily: 'monospace',
     fontWeight: 'bold',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 3,
   },
   watermark: {
     position: 'absolute',
     bottom: 12,
     left: 12,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
   },
   watermarkText: {
     color: 'rgba(255,255,255,0.6)',
     fontSize: 10,
     fontFamily: 'monospace',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });

@@ -7,6 +7,7 @@ import {
   Alert,
   Vibration,
   StatusBar,
+  BackHandler,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { recordingService } from '../services/RecordingService';
@@ -68,6 +69,22 @@ export default function HomeScreen() {
     }
   }, [isRecording, settings, clips]);
 
+  const handleExitApp = useCallback(() => {
+    Alert.alert('Exit DashCamFool', 'Stop recording and close the app?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Exit',
+        style: 'destructive',
+        onPress: async () => {
+          if (isRecording) {
+            await recordingService.stopRecording();
+          }
+          BackHandler.exitApp();
+        },
+      },
+    ]);
+  }, [isRecording]);
+
   const handleEmergencyLock = useCallback(async () => {
     if (!isRecording) return;
 
@@ -99,6 +116,11 @@ export default function HomeScreen() {
       {/* Camera preview */}
       <View style={styles.cameraContainer}>
         <CameraView isActive={true} />
+
+        {/* Exit button - top left */}
+        <TouchableOpacity style={styles.exitButton} onPress={handleExitApp}>
+          <Text style={styles.exitText}>✕</Text>
+        </TouchableOpacity>
 
         {/* Recording indicator */}
         {isRecording && (
@@ -207,6 +229,23 @@ const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
     position: 'relative',
+  },
+  exitButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exitText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   recordingIndicator: {
     position: 'absolute',

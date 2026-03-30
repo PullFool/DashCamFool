@@ -158,20 +158,6 @@ function VideoPlayer({
           <Text style={styles.timeText}>{formatPlayerTime(videoDuration)}</Text>
         </View>
 
-        {/* Clip info */}
-        <View style={styles.playerInfo}>
-          <Text style={styles.playerInfoText}>
-            {new Date(clip.createdAt).toLocaleString()}
-          </Text>
-          <Text style={styles.playerInfoText}>
-            {formatSize(clip.fileSize)} • {formatDuration(clip.duration)}
-          </Text>
-          {clip.location && (
-            <Text style={styles.playerInfoText}>
-              Speed: {clip.location.speed} km/h
-            </Text>
-          )}
-        </View>
       </View>
       )}
     </View>

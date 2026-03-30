@@ -3,7 +3,6 @@ import { VideoClip, AppSettings } from '../types';
 import { storageManager } from './StorageManager';
 import { locationService } from './LocationService';
 import { backgroundService } from './BackgroundService';
-import { videoProcessor } from './VideoProcessor';
 
 type ClipCallback = (clip: VideoClip) => void;
 type StateCallback = (state: { isRecording: boolean; elapsed: number }) => void;
@@ -91,11 +90,14 @@ class RecordingService {
     });
 
     this.isRecording = true;
+    this.notifyState();
     this.startChunk();
   }
 
   private startChunk(): void {
     if (!this.cameraRef || !this.currentSettings || !this.isRecording) return;
+
+    this.clearTimers();
 
     const camera = this.cameraRef;
     const chunkSec = this.currentSettings.chunkDurationSec;
@@ -105,10 +107,11 @@ class RecordingService {
 
     camera.startRecording({
       onRecordingFinished: (video) => {
-        this.onChunkDone(video.path, video.duration);
+        this.clearTimers();
+        this.saveClip(video.path, video.duration);
       },
       onRecordingError: () => {
-        // Silently retry — no warnings, no errors shown
+        this.clearTimers();
         if (this.isRecording) {
           this.waitingForNextChunk = true;
           setTimeout(() => {
@@ -119,50 +122,34 @@ class RecordingService {
       fileType: 'mp4',
     });
 
-    // Start timer
     this.elapsedInterval = setInterval(() => {
       this.elapsedSeconds++;
       this.totalSeconds++;
       this.notifyState();
     }, 1000);
 
-    // Auto-stop after chunk duration
     this.chunkTimeout = setTimeout(() => {
       if (this.isRecording) {
         this.clearTimers();
-        try {
-          camera.stopRecording();
-        } catch {}
+        try { camera.stopRecording(); } catch {}
       }
     }, chunkSec * 1000);
   }
 
-  private async onChunkDone(filePath: string, duration: number): Promise<void> {
-    this.clearTimers();
-
+  private async saveClip(filePath: string, duration: number): Promise<void> {
     try {
       const settings = this.currentSettings;
       if (!settings) return;
 
-      // Burn timestamp + speed into video
       const location = locationService.getCurrentLocation();
-      const gpsAvailable = location != null;
-      const speed = location?.speed ?? 0;
-      const processedPath = await videoProcessor.burnOverlay(
-        filePath,
-        speed,
-        Date.now(),
-        gpsAvailable,
-      );
-
-      const fileSize = await storageManager.getFileSize(processedPath);
+      const fileSize = await storageManager.getFileSize(filePath);
       const shouldLock = this.lockNextClip;
       this.lockNextClip = false;
 
       const clip: VideoClip = {
         id: `clip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${Math.random().toString(36).substr(2, 4)}`,
-        filePath: processedPath,
-        fileName: processedPath.split('/').pop() || 'unknown.mp4',
+        filePath,
+        fileName: filePath.split('/').pop() || 'unknown.mp4',
         duration: Math.round(duration),
         fileSize,
         createdAt: Date.now(),
@@ -182,10 +169,11 @@ class RecordingService {
       }
 
       this.currentClips.push(clip);
-      this.onClipSaved?.(clip);
+      if (this.onClipSaved) {
+        this.onClipSaved(clip);
+      }
     } catch {}
 
-    // Start next chunk
     if (this.isRecording) {
       this.waitingForNextChunk = true;
       this.notifyState();
@@ -202,9 +190,7 @@ class RecordingService {
 
     if (!this.waitingForNextChunk) {
       try {
-        if (this.cameraRef) {
-          await this.cameraRef.stopRecording();
-        }
+        if (this.cameraRef) await this.cameraRef.stopRecording();
       } catch {}
     }
 
