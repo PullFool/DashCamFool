@@ -172,7 +172,27 @@ class RecordingService {
       if (this.onClipSaved) {
         this.onClipSaved(clip);
       }
-    } catch {}
+    } catch (e: any) {
+      // Don't lose the clip — save with minimal info if something failed
+      try {
+        const fallbackClip: VideoClip = {
+          id: `clip_${Date.now()}_fallback`,
+          filePath,
+          fileName: filePath.split('/').pop() || 'unknown.mp4',
+          duration: Math.round(duration),
+          fileSize: 0,
+          createdAt: Date.now(),
+          isLocked: false,
+          camera: 'back',
+          thumbnailPath: undefined,
+          location: undefined,
+        };
+        this.currentClips.push(fallbackClip);
+        if (this.onClipSaved) {
+          this.onClipSaved(fallbackClip);
+        }
+      } catch {}
+    }
 
     if (this.isRecording) {
       this.waitingForNextChunk = true;

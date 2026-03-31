@@ -37,28 +37,51 @@ class LocationService {
 
       Geolocation.requestAuthorization();
 
+      let lastLat = 0;
+      let lastLon = 0;
+      let lastTime = 0;
+
       this.watchId = Geolocation.watchPosition(
         (position: GeolocationResponse) => {
           const { latitude, longitude, speed } = position.coords;
+          const now = position.timestamp;
+
+          // Try GPS speed first
+          let calculatedSpeed = 0;
+          if (speed != null && speed >= 0) {
+            calculatedSpeed = Math.round(speed * 3.6);
+          } else if (lastLat !== 0 && lastTime !== 0) {
+            // Fallback: calculate speed from distance between two GPS points
+            const timeDiff = (now - lastTime) / 1000; // seconds
+            if (timeDiff > 0 && timeDiff < 10) {
+              const dist = this.getDistance(lastLat, lastLon, latitude, longitude);
+              calculatedSpeed = Math.round((dist / timeDiff) * 3.6); // m/s to km/h
+            }
+          }
+
+          lastLat = latitude;
+          lastLon = longitude;
+          lastTime = now;
 
           this.currentLocation = {
             latitude,
             longitude,
-            speed: speed != null && speed >= 0 ? Math.round(speed * 3.6) : 0,
-            timestamp: position.timestamp,
+            speed: calculatedSpeed,
+            timestamp: now,
           };
 
           this.listeners.forEach(cb => cb(this.currentLocation!));
         },
         () => {
-          // Silently ignore GPS errors — recording works without it
+          // Silently ignore GPS errors
         },
         {
-          enableHighAccuracy: false,
-          distanceFilter: 10,
-          interval: 2000,
-          fastestInterval: 1000,
-          timeout: 30000,
+          enableHighAccuracy: true,
+          distanceFilter: 5,
+          interval: 1000,
+          fastestInterval: 500,
+          timeout: 60000,
+          maximumAge: 0,
         },
       );
     } catch {
@@ -106,6 +129,20 @@ class LocationService {
    */
   isTracking(): boolean {
     return this.watchId !== null;
+  }
+
+  /**
+   * Calculate distance between two GPS points in meters (Haversine formula)
+   */
+  private getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000; // Earth radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 }
 
